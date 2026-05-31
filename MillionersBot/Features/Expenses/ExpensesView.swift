@@ -19,6 +19,7 @@ struct ExpensesView: View {
     private var expenses: [Expense]
 
     @Query private var categories: [Category]
+    @Environment(CurrencyService.self) private var currency
     @AppStorage("householdID") private var householdID: String = ""
 
     @State private var editorExpense: Expense?
@@ -93,6 +94,7 @@ struct ExpensesView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .refreshable { await currency.refresh() }
     }
 
     private func dayHeader(day: Date, items: [Expense]) -> some View {
@@ -172,5 +174,6 @@ private struct ExpenseRow: View {
 
 #Preview {
     ExpensesView()
+        .environment(CurrencyService())
         .modelContainer(PersistenceController.preview)
 }

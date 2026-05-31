@@ -36,21 +36,16 @@ struct SettingsView: View {
                 }
 
                 Section("Курсы валют") {
-                    if let updatedAt = currency.updatedAt {
-                        LabeledContent("Обновлено", value: updatedAt.formatted(.relative(presentation: .named)))
-                    } else {
-                        LabeledContent("Обновлено", value: "нет данных")
-                    }
-                    Button {
-                        Task { await currency.refresh() }
+                    NavigationLink {
+                        RatesView()
                     } label: {
-                        if currency.isLoading {
-                            ProgressView()
-                        } else {
-                            Text("Обновить курсы")
+                        LabeledContent {
+                            Text(currency.updatedAt != nil ? "актуальны" : "нет данных")
+                                .foregroundStyle(.secondary)
+                        } label: {
+                            Label("Курсы валют", systemImage: "arrow.left.arrow.right")
                         }
                     }
-                    .disabled(currency.isLoading)
                 }
 
                 Section("Данные") {

@@ -130,6 +130,7 @@ struct StatsView: View {
             }
             .padding()
         }
+        .refreshable { await currency.refresh() }
     }
 
     private var totalHeader: some View {

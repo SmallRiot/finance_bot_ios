@@ -13,6 +13,7 @@ struct SavingsView: View {
 
     @Query(filter: #Predicate<Saving> { !$0.isDeleted }, sort: \Saving.updatedAt, order: .reverse)
     private var allSavings: [Saving]
+    @Environment(CurrencyService.self) private var currency
     @AppStorage("householdID") private var householdID: String = ""
 
     @State private var editorSaving: Saving?
@@ -64,6 +65,7 @@ struct SavingsView: View {
             }
             .padding()
         }
+        .refreshable { await currency.refresh() }
     }
 
     private var emptyState: some View {
@@ -132,5 +134,6 @@ private struct SavingCard: View {
 
 #Preview {
     SavingsView()
+        .environment(CurrencyService())
         .modelContainer(PersistenceController.preview)
 }
