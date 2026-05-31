@@ -2,9 +2,9 @@
 //  RatesView.swift
 //  MillionersBot
 //
-//  Курсы валют с выбором базовой валюты. База для просмотра курсов —
-//  отдельная настройка ("ratesBaseCurrency"), не связана с основной
-//  валютой аккаунта ("baseCurrency").
+//  Курсы валют + живой конвертер: вводишь сумму в выбранной валюте и сразу
+//  видишь её во всех остальных. База ("ratesBaseCurrency") — отдельная
+//  настройка, не связана с основной валютой аккаунта ("baseCurrency").
 //
 
 import SwiftUI
@@ -13,9 +13,10 @@ struct RatesView: View {
     @Environment(CurrencyService.self) private var currency
     @AppStorage("ratesBaseCurrency") private var ratesBase: String = CurrencyCode.default.rawValue
 
-    private var baseSymbol: String {
-        CurrencyCode(rawValue: ratesBase)?.symbol ?? ratesBase
-    }
+    @State private var amountText: String = "1000"
+    @FocusState private var amountFocused: Bool
+
+    private var amount: Decimal { Money.parse(amountText) ?? 0 }
 
     private var others: [CurrencyCode] {
         CurrencyCode.allCases.filter { $0.rawValue != ratesBase }
@@ -24,25 +25,41 @@ struct RatesView: View {
     var body: some View {
         List {
             Section {
-                Picker("Относительно валюты", selection: $ratesBase) {
-                    ForEach(CurrencyCode.allCases) { code in
-                        Text("\(code.displayName) (\(code.symbol))").tag(code.rawValue)
+                HStack(spacing: 12) {
+                    TextField("Сумма", text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .focused($amountFocused)
+                    Menu {
+                        Picker("Валюта", selection: $ratesBase) {
+                            ForEach(CurrencyCode.allCases) { code in
+                                Text("\(code.symbol)  \(code.rawValue)").tag(code.rawValue)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(CurrencyCode(rawValue: ratesBase)?.symbol ?? ratesBase)
+                                .font(.title.weight(.bold))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(.tint)
                     }
                 }
             } footer: {
                 if let updatedAt = currency.updatedAt {
-                    Text("Обновлено \(updatedAt.formatted(.relative(presentation: .named))). Потяните вниз, чтобы обновить.")
+                    Text("Курс обновлён \(updatedAt.formatted(.relative(presentation: .named))). Потяните вниз для обновления.")
                 } else {
-                    Text("Курсы ещё не загружены. Потяните вниз, чтобы обновить.")
+                    Text("Курсы ещё не загружены. Потяните вниз для обновления.")
                 }
             }
 
-            Section("За 1 \(baseSymbol)") {
+            Section("В других валютах") {
                 if currency.rates.isEmpty {
                     ContentUnavailableView("Нет данных о курсах", systemImage: "wifi.slash")
                 } else {
                     ForEach(others) { code in
-                        HStack {
+                        HStack(spacing: 12) {
                             Text(code.symbol)
                                 .font(.headline)
                                 .frame(width: 28, alignment: .leading)
@@ -53,7 +70,7 @@ struct RatesView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(rateString(for: code))
+                            Text(convertedString(to: code))
                                 .font(.body.weight(.semibold))
                                 .monospacedDigit()
                         }
@@ -61,7 +78,7 @@ struct RatesView: View {
                 }
             }
         }
-        .navigationTitle("Курсы валют")
+        .navigationTitle("Конвертер валют")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await currency.refresh() }
         .toolbar {
@@ -76,20 +93,17 @@ struct RatesView: View {
                     }
                 }
             }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Готово") { amountFocused = false }
+            }
         }
         .task { await currency.refreshIfNeeded() }
     }
 
-    /// Сколько единиц `code` стоит 1 единица базовой валюты.
-    private func rateString(for code: CurrencyCode) -> String {
-        guard let value = currency.convert(1, from: ratesBase, to: code.rawValue) else { return "—" }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let double = (value as NSDecimalNumber).doubleValue
-        formatter.maximumFractionDigits = double >= 100 ? 1 : (double >= 1 ? 2 : 4)
-        formatter.minimumFractionDigits = 0
-        let number = formatter.string(from: value as NSDecimalNumber) ?? "\(value)"
-        return "\(number) \(code.symbol)"
+    private func convertedString(to code: CurrencyCode) -> String {
+        guard let value = currency.convert(amount, from: ratesBase, to: code.rawValue) else { return "—" }
+        return Money.string(value, code: code.rawValue)
     }
 }
 

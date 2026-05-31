@@ -35,16 +35,11 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Курсы валют") {
+                Section("Валюты") {
                     NavigationLink {
                         RatesView()
                     } label: {
-                        LabeledContent {
-                            Text(currency.updatedAt != nil ? "актуальны" : "нет данных")
-                                .foregroundStyle(.secondary)
-                        } label: {
-                            Label("Курсы валют", systemImage: "arrow.left.arrow.right")
-                        }
+                        Label("Курсы и конвертер", systemImage: "arrow.left.arrow.right")
                     }
                 }
 
