@@ -11,6 +11,7 @@ import SwiftData
 struct AddExpenseView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthService.self) private var auth
 
     /// Если передана — режим редактирования.
     var expense: Expense?
@@ -20,6 +21,8 @@ struct AddExpenseView: View {
         sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.name)]
     )
     private var categories: [Category]
+
+    @Query private var profiles: [UserProfile]
 
     @AppStorage("baseCurrency") private var baseCurrency: String = CurrencyCode.default.rawValue
     @AppStorage("householdID") private var householdID: String = ""
@@ -41,6 +44,13 @@ struct AddExpenseView: View {
     }
 
     private var isValid: Bool { parsedAmount != nil }
+
+    private func authorName(for expense: Expense) -> String? {
+        guard let authorID = expense.authorID else { return nil }
+        if authorID == auth.uid { return "Вы" }
+        if let profile = profiles.first(where: { $0.id == authorID }) { return profile.displayName }
+        return "Участник " + authorID.prefix(4)
+    }
 
     var body: some View {
         NavigationStack {
@@ -86,6 +96,12 @@ struct AddExpenseView: View {
                 Section {
                     TextField("Заметка (необязательно)", text: $note, axis: .vertical)
                     DatePicker("Дата", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                }
+
+                if let expense, let authorName = authorName(for: expense) {
+                    Section {
+                        LabeledContent("Добавил", value: authorName)
+                    }
                 }
             }
             .navigationTitle(expense == nil ? "Новая трата" : "Редактировать")
@@ -136,6 +152,7 @@ struct AddExpenseView: View {
                 categoryID: selectedCategoryID,
                 note: trimmedNote.isEmpty ? nil : trimmedNote,
                 date: date,
+                authorID: auth.uid,
                 householdID: householdID.isEmpty ? nil : householdID
             )
         }
@@ -175,5 +192,6 @@ private struct CategoryGridCell: View {
 
 #Preview {
     AddExpenseView()
+        .environment(AuthService())
         .modelContainer(PersistenceController.preview)
 }

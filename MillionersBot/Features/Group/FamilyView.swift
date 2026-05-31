@@ -16,14 +16,28 @@ struct FamilyView: View {
 
     @AppStorage("householdID") private var householdID: String = ""
     @AppStorage("baseCurrency") private var baseCurrency: String = CurrencyCode.default.rawValue
+    @AppStorage("displayName") private var displayName: String = ""
 
     @Query private var households: [Household]
+    @Query private var profiles: [UserProfile]
 
     @State private var showCreate = false
     @State private var showJoin = false
+    @State private var nameDraft = ""
+    @FocusState private var nameFocused: Bool
 
     private var currentHousehold: Household? {
         households.first { $0.id == householdID }
+    }
+
+    private func memberName(_ id: String) -> String {
+        if id == auth.uid {
+            return displayName.isEmpty ? "Вы" : "\(displayName) (вы)"
+        }
+        if let profile = profiles.first(where: { $0.id == id }), !profile.displayName.isEmpty {
+            return profile.displayName
+        }
+        return "Участник " + id.prefix(4)
     }
 
     var body: some View {
@@ -64,6 +78,23 @@ struct FamilyView: View {
     private var groupDetails: some View {
         List {
             Section {
+                HStack {
+                    TextField("Как вас зовут", text: $nameDraft)
+                        .focused($nameFocused)
+                        .onSubmit(saveName)
+                    if nameDraft.trimmingCharacters(in: .whitespaces) != displayName
+                        && !nameDraft.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Button("Сохранить", action: saveName)
+                            .font(.subheadline)
+                    }
+                }
+            } header: {
+                Text("Ваше имя")
+            } footer: {
+                Text("Это имя увидят другие участники семьи рядом с вашими тратами.")
+            }
+
+            Section {
                 LabeledContent("Название", value: currentHousehold?.name ?? "Семья")
                 if let code = currentHousehold?.inviteCode {
                     HStack {
@@ -85,7 +116,7 @@ struct FamilyView: View {
                     HStack {
                         Image(systemName: "person.circle.fill")
                             .foregroundStyle(.secondary)
-                        Text(member == auth.uid ? "Вы" : shortID(member))
+                        Text(memberName(member))
                     }
                 }
             }
@@ -94,10 +125,24 @@ struct FamilyView: View {
                 Button("Выйти из семьи", role: .destructive, action: leave)
             }
         }
+        .onAppear { nameDraft = displayName }
     }
 
-    private func shortID(_ id: String) -> String {
-        "Участник " + id.prefix(4)
+    private func saveName() {
+        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let uid = auth.uid, !trimmed.isEmpty else { return }
+        displayName = trimmed
+        nameFocused = false
+        if let profile = profiles.first(where: { $0.id == uid }) {
+            profile.displayName = trimmed
+            if !householdID.isEmpty { profile.householdID = householdID }
+            profile.updatedAt = .now
+        } else {
+            let profile = UserProfile(id: uid, displayName: trimmed,
+                                      householdID: householdID.isEmpty ? nil : householdID)
+            context.insert(profile)
+        }
+        try? context.save()
     }
 
     /// Применяет результат создания/вступления: зеркалит в SwiftData + сохраняет id.
@@ -120,9 +165,23 @@ struct FamilyView: View {
             context.insert(household)
         }
         householdID = info.id              // запускает sync.start через RootView.onChange
+        ensureProfileInHousehold(info.id)
         if adopt {
             sync.adoptLocalData(into: info.id)
         }
+    }
+
+    /// Гарантирует, что профиль пользователя привязан к семье и уедет в синк.
+    private func ensureProfileInHousehold(_ hid: String) {
+        guard let uid = auth.uid else { return }
+        if let profile = profiles.first(where: { $0.id == uid }) {
+            profile.householdID = hid
+            profile.updatedAt = .now
+        } else {
+            let name = displayName.isEmpty ? "Участник \(uid.prefix(4))" : displayName
+            context.insert(UserProfile(id: uid, displayName: name, householdID: hid))
+        }
+        try? context.save()
     }
 
     private func leave() {

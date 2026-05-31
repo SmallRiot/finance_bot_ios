@@ -17,12 +17,19 @@ struct StatsView: View {
     private var allExpenses: [Expense]
 
     @Query private var categories: [Category]
+    @Query private var profiles: [UserProfile]
     @Environment(CurrencyService.self) private var currency
+    @Environment(AuthService.self) private var auth
 
     @State private var period: StatsPeriod = .month
+    @State private var periodOffset: Int = 0
     @State private var selectedAngle: Double?
 
     private let calendar = Calendar.current
+
+    private var interval: DateInterval {
+        period.interval(now: .now, calendar: calendar, offset: periodOffset)
+    }
 
     /// Категория, на сектор которой нажали (по выбранному углу пончика).
     private var selectedSlice: CategorySlice? {
@@ -59,8 +66,7 @@ struct StatsView: View {
     @AppStorage("householdID") private var householdID: String = ""
 
     private var expensesInPeriod: [Expense] {
-        let interval = period.interval(now: .now, calendar: calendar)
-        return allExpenses.filter {
+        allExpenses.filter {
             inScope($0.householdID, current: householdID)
                 && $0.date >= interval.start && $0.date < interval.end
         }
@@ -93,9 +99,25 @@ struct StatsView: View {
             let key = period.bucketStart(for: expense.date, calendar: calendar)
             sums[key, default: 0] += inBase(expense)
         }
-        return period.bucketStarts(now: .now, calendar: calendar).map { start in
+        return period.bucketStarts(in: interval, calendar: calendar).map { start in
             TrendBucket(date: start, label: period.label(for: start), amount: sums[start] ?? 0)
         }
+    }
+
+    /// Топ трат выбранной категории за период (по убыванию суммы в базовой валюте).
+    private func topExpenses(for categoryID: String) -> [Expense] {
+        expensesInPeriod
+            .filter { ($0.categoryID ?? "—") == categoryID }
+            .sorted { inBase($0) > inBase($1) }
+    }
+
+    private func authorName(_ expense: Expense) -> String? {
+        guard let authorID = expense.authorID, !householdID.isEmpty else { return nil }
+        if authorID == auth.uid { return "Вы" }
+        if let profile = profiles.first(where: { $0.id == authorID }), !profile.displayName.isEmpty {
+            return profile.displayName
+        }
+        return "Участник " + authorID.prefix(4)
     }
 
     var body: some View {
@@ -109,14 +131,43 @@ struct StatsView: View {
             }
             .navigationTitle("Статистика")
             .safeAreaInset(edge: .top) {
-                Picker("Период", selection: $period) {
-                    ForEach(StatsPeriod.allCases) { Text($0.rawValue).tag($0) }
+                VStack(spacing: 10) {
+                    Picker("Период", selection: $period) {
+                        ForEach(StatsPeriod.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    periodNav
                 }
-                .pickerStyle(.segmented)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
                 .background(.bar)
             }
+            .onChange(of: period) {
+                periodOffset = 0
+                selectedAngle = nil
+            }
+        }
+    }
+
+    private var periodNav: some View {
+        HStack {
+            Button {
+                periodOffset -= 1
+                selectedAngle = nil
+            } label: {
+                Image(systemName: "chevron.left").font(.body.weight(.semibold))
+            }
+            Spacer()
+            Text(period.title(for: interval))
+                .font(.subheadline.weight(.semibold))
+            Spacer()
+            Button {
+                periodOffset += 1
+                selectedAngle = nil
+            } label: {
+                Image(systemName: "chevron.right").font(.body.weight(.semibold))
+            }
+            .disabled(periodOffset >= 0)
         }
     }
 
@@ -125,12 +176,50 @@ struct StatsView: View {
             VStack(spacing: 24) {
                 totalHeader
                 donutChart
+                if selectedSlice != nil { selectedDetail }
                 trendChart
                 categoryList
             }
             .padding()
         }
         .refreshable { await currency.refresh() }
+    }
+
+    @ViewBuilder
+    private var selectedDetail: some View {
+        if let slice = selectedSlice {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "list.bullet")
+                        .foregroundStyle(slice.color)
+                    Text("Топ трат — \(slice.name)")
+                        .font(.headline)
+                }
+                ForEach(topExpenses(for: slice.id)) { expense in
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(expense.note?.isEmpty == false ? expense.note! : slice.name)
+                            HStack(spacing: 6) {
+                                Text(expense.date.formatted(.dateTime.day().month()))
+                                if let author = authorName(expense) {
+                                    Text("· \(author)")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Money.string(expense.amount, code: expense.currencyCode))
+                            .font(.body.weight(.semibold))
+                            .monospacedDigit()
+                    }
+                    .padding(.vertical, 4)
+                    Divider()
+                }
+            }
+            .padding()
+            .background(slice.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
     }
 
     private var totalHeader: some View {
@@ -275,5 +364,6 @@ private struct TrendBucket: Identifiable {
 #Preview {
     StatsView()
         .environment(CurrencyService())
+        .environment(AuthService())
         .modelContainer(PersistenceController.preview)
 }

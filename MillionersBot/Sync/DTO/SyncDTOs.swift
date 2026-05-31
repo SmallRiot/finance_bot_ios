@@ -8,6 +8,20 @@
 
 import Foundation
 
+struct MemberDTO: Codable {
+    var id: String
+    var displayName: String
+    var avatarColorHex: String
+    var updatedAt: Date
+
+    init(_ m: UserProfile) {
+        id = m.id
+        displayName = m.displayName
+        avatarColorHex = m.avatarColorHex
+        updatedAt = m.updatedAt
+    }
+}
+
 struct CategoryDTO: Codable {
     var id: String
     var name: String

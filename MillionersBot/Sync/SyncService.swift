@@ -84,6 +84,29 @@ final class SyncService {
             let dtos = snapshot?.documents.compactMap { try? $0.data(as: SavingDTO.self) } ?? []
             Task { @MainActor in self.applySavings(dtos) }
         })
+        listeners.append(collection(hid, "members").addSnapshotListener { snapshot, _ in
+            let dtos = snapshot?.documents.compactMap { try? $0.data(as: MemberDTO.self) } ?? []
+            Task { @MainActor in self.applyMembers(dtos) }
+        })
+    }
+
+    private func applyMembers(_ dtos: [MemberDTO]) {
+        withRemoteApply {
+            for dto in dtos {
+                if let existing = fetchProfile(dto.id) {
+                    guard dto.updatedAt > existing.updatedAt else { continue }
+                    existing.displayName = dto.displayName
+                    existing.avatarColorHex = dto.avatarColorHex
+                    existing.updatedAt = dto.updatedAt
+                } else {
+                    let profile = UserProfile(id: dto.id, displayName: dto.displayName,
+                                              avatarColorHex: dto.avatarColorHex,
+                                              householdID: householdID, updatedAt: dto.updatedAt)
+                    context.insert(profile)
+                }
+                watermark = max(watermark, dto.updatedAt)
+            }
+        }
     }
 
     private func applyCategories(_ dtos: [CategoryDTO]) {
@@ -193,6 +216,10 @@ final class SyncService {
             try? collection(hid, "savings").document(s.id).setData(from: SavingDTO(s))
             newWatermark = max(newWatermark, s.updatedAt)
         }
+        for p in (fetchAll(UserProfile.self)) where p.householdID == hid && p.updatedAt > watermark {
+            try? collection(hid, "members").document(p.id).setData(from: MemberDTO(p))
+            newWatermark = max(newWatermark, p.updatedAt)
+        }
         watermark = newWatermark
     }
 
@@ -209,6 +236,9 @@ final class SyncService {
         }
         for s in fetchAll(Saving.self) where s.householdID == nil {
             s.householdID = hid; s.updatedAt = now
+        }
+        for p in fetchAll(UserProfile.self) where p.householdID == nil {
+            p.householdID = hid; p.updatedAt = now
         }
         try? context.save()
     }
@@ -232,6 +262,10 @@ final class SyncService {
 
     private func fetchSaving(_ id: String) -> Saving? {
         try? context.fetch(FetchDescriptor<Saving>(predicate: #Predicate { $0.id == id })).first
+    }
+
+    private func fetchProfile(_ id: String) -> UserProfile? {
+        try? context.fetch(FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == id })).first
     }
 
     private func fetchAll<T: PersistentModel>(_ type: T.Type) -> [T] {
