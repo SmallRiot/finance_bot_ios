@@ -67,20 +67,20 @@ struct AddExpenseView: View {
                 }
 
                 Section("Категория") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(scopedCategories) { category in
-                                CategoryChip(
-                                    category: category,
-                                    isSelected: selectedCategoryID == category.id
-                                ) {
-                                    selectedCategoryID = category.id
-                                }
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 78), spacing: 10)],
+                        spacing: 14
+                    ) {
+                        ForEach(scopedCategories) { category in
+                            CategoryGridCell(
+                                category: category,
+                                isSelected: selectedCategoryID == category.id
+                            ) {
+                                selectedCategoryID = category.id
                             }
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .padding(.vertical, 8)
                 }
 
                 Section {
@@ -143,7 +143,7 @@ struct AddExpenseView: View {
     }
 }
 
-private struct CategoryChip: View {
+private struct CategoryGridCell: View {
     let category: Category
     let isSelected: Bool
     let action: () -> Void
@@ -151,16 +151,23 @@ private struct CategoryChip: View {
     var body: some View {
         let color = Color(hex: category.colorHex)
         Button(action: action) {
-            HStack(spacing: 6) {
+            VStack(spacing: 6) {
                 Image(systemName: category.iconSystemName)
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? .white : color)
+                    .frame(width: 54, height: 54)
+                    .background(
+                        isSelected ? color : color.opacity(0.15),
+                        in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    )
                 Text(category.name)
+                    .font(.caption2)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? color : .secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(height: 26, alignment: .top)
             }
-            .font(.subheadline.weight(.medium))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(isSelected ? color : color.opacity(0.15))
-            .foregroundStyle(isSelected ? .white : color)
-            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }

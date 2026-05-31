@@ -64,6 +64,11 @@ struct ExpensesView: View {
             .sheet(item: $editorExpense) { expense in
                 AddExpenseView(expense: expense)
             }
+            #if DEBUG
+            .onAppear {
+                if CommandLine.arguments.contains("-addSheet") { isAddingNew = true }
+            }
+            #endif
         }
     }
 
