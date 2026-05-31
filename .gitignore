@@ -7,3 +7,6 @@ build/
 
 # Swift Package Manager
 .swiftpm/
+
+# Firebase secrets (not committed)
+MillionersBot/GoogleService-Info.plist
