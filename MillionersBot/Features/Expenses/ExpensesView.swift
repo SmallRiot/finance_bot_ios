@@ -19,11 +19,23 @@ struct ExpensesView: View {
     private var expenses: [Expense]
 
     @Query private var categories: [Category]
+    @Query private var profiles: [UserProfile]
     @Environment(CurrencyService.self) private var currency
+    @Environment(AuthService.self) private var auth
     @AppStorage("householdID") private var householdID: String = ""
 
     @State private var editorExpense: Expense?
     @State private var isAddingNew = false
+
+    /// Имя автора траты — показываем только в семье.
+    private func authorLabel(_ expense: Expense) -> String? {
+        guard !householdID.isEmpty, let authorID = expense.authorID else { return nil }
+        if authorID == auth.uid { return "Вы" }
+        if let profile = profiles.first(where: { $0.id == authorID }), !profile.displayName.isEmpty {
+            return profile.displayName
+        }
+        return "Участник " + authorID.prefix(4)
+    }
 
     private var scopedExpenses: [Expense] {
         expenses.filter { inScope($0.householdID, current: householdID) }
@@ -81,7 +93,11 @@ struct ExpensesView: View {
                         Button {
                             editorExpense = expense
                         } label: {
-                            ExpenseRow(expense: expense, category: categoriesByID[expense.categoryID ?? ""])
+                            ExpenseRow(
+                                expense: expense,
+                                category: categoriesByID[expense.categoryID ?? ""],
+                                author: authorLabel(expense)
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -141,6 +157,17 @@ struct ExpensesView: View {
 private struct ExpenseRow: View {
     let expense: Expense
     let category: Category?
+    var author: String?
+
+    private var subtitle: String? {
+        let note = (expense.note?.isEmpty == false) ? expense.note : nil
+        switch (note, author) {
+        case let (note?, author?): return "\(note) · \(author)"
+        case let (note?, nil): return note
+        case let (nil, author?): return author
+        default: return nil
+        }
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -154,8 +181,8 @@ private struct ExpenseRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(category?.name ?? "Без категории")
                     .font(.body)
-                if let note = expense.note, !note.isEmpty {
-                    Text(note)
+                if let subtitle {
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -175,5 +202,6 @@ private struct ExpenseRow: View {
 #Preview {
     ExpensesView()
         .environment(CurrencyService())
+        .environment(AuthService())
         .modelContainer(PersistenceController.preview)
 }

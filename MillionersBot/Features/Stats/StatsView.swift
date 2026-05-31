@@ -254,11 +254,52 @@ struct StatsView: View {
                 }
             }
         }
-        .chartAngleSelection(value: $selectedAngle)
         .chartLegend(.hidden)
         .frame(height: 240)
-        .overlay { centerLabel }
+        .chartOverlay { _ in
+            GeometryReader { geo in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { location in
+                        handleDonutTap(at: location, in: geo.frame(in: .local))
+                    }
+            }
+        }
+        .overlay { centerLabel.allowsHitTesting(false) }
         .animation(.easeInOut(duration: 0.2), value: selectedSlice?.id)
+    }
+
+    /// Тап по сектору бублика — то же действие, что тап по категории в списке.
+    private func handleDonutTap(at point: CGPoint, in rect: CGRect) {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let dx = Double(point.x - center.x)
+        let dy = Double(point.y - center.y)
+        let distance = (dx * dx + dy * dy).squareRoot()
+        let radius = Double(min(rect.width, rect.height)) / 2
+        // Тап вне кольца или в центральную дырку — снять выделение.
+        guard distance <= radius, distance >= radius * 0.38 else {
+            withAnimation { selectedAngle = nil }
+            return
+        }
+        var degrees = atan2(dy, dx) * 180 / .pi + 90 // 0° — сверху, по часовой
+        if degrees < 0 { degrees += 360 }
+        let total = (self.total as NSDecimalNumber).doubleValue
+        guard total > 0 else { return }
+        let target = degrees / 360 * total
+        let tapped = slice(atCumulative: target)
+        withAnimation {
+            selectedAngle = (selectedSlice?.id == tapped?.id) ? nil : target
+        }
+    }
+
+    private func slice(atCumulative value: Double) -> CategorySlice? {
+        var cumulative = 0.0
+        for slice in slices {
+            let amount = (slice.amount as NSDecimalNumber).doubleValue
+            if value >= cumulative && value < cumulative + amount { return slice }
+            cumulative += amount
+        }
+        return slices.last
     }
 
     @ViewBuilder
