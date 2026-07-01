@@ -24,6 +24,7 @@ struct ExpensesView: View {
     @Environment(AuthService.self) private var auth
     @Environment(AppState.self) private var appState
     @AppStorage("householdID") private var householdID: String = ""
+    @AppStorage("baseCurrency") private var baseCurrency: String = CurrencyCode.default.rawValue
 
     @State private var editorExpense: Expense?
     @State private var isAddingNew = false
@@ -131,15 +132,15 @@ struct ExpensesView: View {
         .font(.subheadline)
     }
 
-    /// Сумма за день по каждой валюте (конвертация — в M6).
+    /// Сумма траты, приведённая к базовой валюте (если курс есть).
+    private func inBase(_ expense: Expense) -> Decimal {
+        currency.convert(expense.amount, from: expense.currencyCode, to: baseCurrency) ?? expense.amount
+    }
+
+    /// Итог за день — одной суммой в базовой валюте.
     private func dayTotal(_ items: [Expense]) -> String {
-        let byCurrency = Dictionary(grouping: items, by: \.currencyCode)
-        return byCurrency
-            .sorted { $0.key < $1.key }
-            .map { code, group in
-                Money.string(group.reduce(0) { $0 + $1.amount }, code: code)
-            }
-            .joined(separator: " · ")
+        let sum = items.reduce(Decimal(0)) { $0 + inBase($1) }
+        return Money.string(sum, code: baseCurrency)
     }
 
     private var emptyState: some View {
