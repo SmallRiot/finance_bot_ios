@@ -47,6 +47,9 @@ final class SyncService {
         guard self.householdID != householdID else { return }
         stop()
         self.householdID = householdID
+        // Подтягиваем сохранённый watermark: иначе на каждом старте пушим ВСЁ заново.
+        let saved = UserDefaults.standard.object(forKey: watermarkKey(householdID)) as? Date
+        watermark = saved ?? .distantPast
         status = .syncing
         attachListeners(householdID)
         observeLocalSaves()
@@ -300,6 +303,7 @@ final class SyncService {
             newWatermark = max(newWatermark, r.updatedAt)
         }
         watermark = newWatermark
+        persistWatermark()
     }
 
     // MARK: - Усыновление локальных данных при создании семьи
@@ -335,6 +339,17 @@ final class SyncService {
         work()
         try? context.save()
         isApplyingRemote = false
+        persistWatermark() // apply* двигают watermark вперёд — сохраняем прогресс
+    }
+
+    /// Ключ хранения watermark в UserDefaults, отдельный на каждую семью.
+    private func watermarkKey(_ hid: String) -> String { "syncWatermark.\(hid)" }
+
+    /// Сохраняет текущий watermark, чтобы не перезаливать всё на следующем старте.
+    private func persistWatermark() {
+        if let hid = householdID {
+            UserDefaults.standard.set(watermark, forKey: watermarkKey(hid))
+        }
     }
 
     private func fetchCategory(_ id: String) -> Category? {
