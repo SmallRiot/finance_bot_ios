@@ -45,6 +45,16 @@ struct CategoryRepository {
         category.updatedAt = .now
     }
 
+    /// Переписывает sortOrder по новому порядку. updatedAt обновляется
+    /// только у реально сдвинутых категорий — иначе лишний трафик синка
+    /// и ложные конфликты last-write-wins.
+    func reorder(_ ordered: [Category]) {
+        for (index, category) in ordered.enumerated() where category.sortOrder != index {
+            category.sortOrder = index
+            category.updatedAt = .now
+        }
+    }
+
     /// Архивирование вместо удаления — чтобы не «осиротить» старые траты.
     func archive(_ category: Category) {
         category.isArchived = true

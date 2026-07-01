@@ -47,9 +47,13 @@ struct CategoriesView: View {
                 .buttonStyle(.plain)
             }
             .onDelete(perform: archive)
+            .onMove(perform: move)
         }
         .navigationTitle("Категории")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                EditButton()
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     isAddingNew = true
@@ -71,6 +75,12 @@ struct CategoriesView: View {
         for index in offsets {
             repo.archive(scopedCategories[index])
         }
+    }
+
+    private func move(from source: IndexSet, to destination: Int) {
+        var ordered = scopedCategories
+        ordered.move(fromOffsets: source, toOffset: destination)
+        CategoryRepository(context: context).reorder(ordered)
     }
 }
 
