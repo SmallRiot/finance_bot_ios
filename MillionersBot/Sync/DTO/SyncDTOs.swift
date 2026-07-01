@@ -29,6 +29,7 @@ struct CategoryDTO: Codable {
     var colorHex: String
     var isArchived: Bool
     var sortOrder: Int
+    var monthlyLimit: String?
     var updatedAt: Date
 
     init(_ m: Category) {
@@ -38,6 +39,7 @@ struct CategoryDTO: Codable {
         colorHex = m.colorHex
         isArchived = m.isArchived
         sortOrder = m.sortOrder
+        monthlyLimit = m.monthlyLimit.map { "\($0)" }
         updatedAt = m.updatedAt
     }
 }

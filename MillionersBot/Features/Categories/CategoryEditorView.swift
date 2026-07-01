@@ -15,9 +15,15 @@ struct CategoryEditorView: View {
     var category: Category?
 
     @AppStorage("householdID") private var householdID: String = ""
+    @AppStorage("baseCurrency") private var baseCurrency: String = CurrencyCode.default.rawValue
     @State private var name: String = ""
     @State private var icon: String = "tag"
     @State private var colorHex: String = Self.palette.first ?? "#8E8E93"
+    @State private var limitText: String = ""
+
+    private var baseSymbol: String {
+        CurrencyCode(rawValue: baseCurrency)?.symbol ?? baseCurrency
+    }
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
@@ -44,6 +50,19 @@ struct CategoryEditorView: View {
 
                 Section("Цвет") {
                     colorRow
+                }
+
+                Section {
+                    HStack {
+                        TextField("Без лимита", text: $limitText)
+                            .keyboardType(.decimalPad)
+                        Text(baseSymbol)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Лимит на месяц")
+                } footer: {
+                    Text("Ориентир по тратам за месяц. Не блокирует добавление трат.")
                 }
             }
             .navigationTitle(category == nil ? "Новая категория" : "Категория")
@@ -99,16 +118,21 @@ struct CategoryEditorView: View {
         name = category.name
         icon = category.iconSystemName
         colorHex = category.colorHex
+        limitText = category.monthlyLimit.map { Money.string($0, code: baseCurrency, fractionDigits: 2)
+            .replacingOccurrences(of: "\u{00A0}" + baseSymbol, with: "") } ?? ""
     }
 
     private func save() {
         let repo = CategoryRepository(context: context)
         let trimmed = name.trimmingCharacters(in: .whitespaces)
+        // Пустой ввод = лимит снят (nil), а не 0.
+        let limit = Money.parse(limitText)
         if let category {
-            repo.update(category, name: trimmed, icon: icon, colorHex: colorHex)
+            repo.update(category, name: trimmed, icon: icon, colorHex: colorHex, monthlyLimit: limit)
         } else {
             repo.add(name: trimmed, icon: icon, colorHex: colorHex,
-                     householdID: householdID.isEmpty ? nil : householdID)
+                     householdID: householdID.isEmpty ? nil : householdID,
+                     monthlyLimit: limit)
         }
         dismiss()
     }

@@ -17,6 +17,8 @@ final class Category {
     var householdID: String?
     var isArchived: Bool
     var sortOrder: Int
+    /// Месячный лимит трат в базовой валюте приложения. nil = лимита нет.
+    var monthlyLimit: Decimal?
     var updatedAt: Date
 
     init(
@@ -27,6 +29,7 @@ final class Category {
         householdID: String? = nil,
         isArchived: Bool = false,
         sortOrder: Int = 0,
+        monthlyLimit: Decimal? = nil,
         updatedAt: Date = .now
     ) {
         self.id = id
@@ -36,6 +39,7 @@ final class Category {
         self.householdID = householdID
         self.isArchived = isArchived
         self.sortOrder = sortOrder
+        self.monthlyLimit = monthlyLimit
         self.updatedAt = updatedAt
     }
 }

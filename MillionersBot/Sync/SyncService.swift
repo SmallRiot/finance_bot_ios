@@ -121,12 +121,15 @@ final class SyncService {
                     existing.colorHex = dto.colorHex
                     existing.isArchived = dto.isArchived
                     existing.sortOrder = dto.sortOrder
+                    existing.monthlyLimit = dto.monthlyLimit.flatMap { Decimal(string: $0) }
                     existing.householdID = hid
                     existing.updatedAt = dto.updatedAt
                 } else {
                     let c = Category(id: dto.id, name: dto.name, iconSystemName: dto.iconSystemName,
                                      colorHex: dto.colorHex, householdID: hid, isArchived: dto.isArchived,
-                                     sortOrder: dto.sortOrder, updatedAt: dto.updatedAt)
+                                     sortOrder: dto.sortOrder,
+                                     monthlyLimit: dto.monthlyLimit.flatMap { Decimal(string: $0) },
+                                     updatedAt: dto.updatedAt)
                     context.insert(c)
                 }
                 watermark = max(watermark, dto.updatedAt)

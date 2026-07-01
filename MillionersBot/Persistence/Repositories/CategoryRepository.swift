@@ -25,23 +25,27 @@ struct CategoryRepository {
     }
 
     @discardableResult
-    func add(name: String, icon: String, colorHex: String, householdID: String? = nil) -> Category {
+    func add(name: String, icon: String, colorHex: String, householdID: String? = nil,
+             monthlyLimit: Decimal? = nil) -> Category {
         let nextOrder = ((try? active().count) ?? 0)
         let category = Category(
             name: name,
             iconSystemName: icon,
             colorHex: colorHex,
             householdID: householdID,
-            sortOrder: nextOrder
+            sortOrder: nextOrder,
+            monthlyLimit: monthlyLimit
         )
         context.insert(category)
         return category
     }
 
-    func update(_ category: Category, name: String, icon: String, colorHex: String) {
+    func update(_ category: Category, name: String, icon: String, colorHex: String,
+                monthlyLimit: Decimal?) {
         category.name = name
         category.iconSystemName = icon
         category.colorHex = colorHex
+        category.monthlyLimit = monthlyLimit
         category.updatedAt = .now
     }
 
