@@ -49,10 +49,12 @@ struct RootView: View {
                 return
             }
             #endif
-            try? CategoryRepository(context: context).seedDefaultsIfNeeded()
         }
         .onChange(of: householdID, initial: true) { _, id in
             if id.isEmpty {
+                // Личная область: сеем дефолтные категории, если их нет
+                // (первый запуск или возврат после выхода из семьи).
+                try? CategoryRepository(context: context).seedDefaultsIfNeeded(householdID: nil)
                 sync.stop()
             } else {
                 sync.start(householdID: id)

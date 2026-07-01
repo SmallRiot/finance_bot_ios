@@ -24,6 +24,14 @@ struct CategoryRepository {
         try context.fetchCount(FetchDescriptor<Category>())
     }
 
+    /// Число активных категорий в конкретной области (личной — householdID == nil,
+    /// или семьи). Нужно, чтобы сеять дефолты по области, а не по глобальному счётчику.
+    func activeCount(in householdID: String?) throws -> Int {
+        try context.fetch(FetchDescriptor<Category>())
+            .filter { !$0.isArchived && $0.householdID == householdID }
+            .count
+    }
+
     @discardableResult
     func add(name: String, icon: String, colorHex: String, householdID: String? = nil,
              monthlyLimit: Decimal? = nil) -> Category {
@@ -69,9 +77,10 @@ struct CategoryRepository {
         context.delete(category)
     }
 
-    /// Создаёт стандартный набор категорий при первом запуске (если пусто).
+    /// Создаёт стандартный набор категорий, если в текущей области их нет
+    /// (первый запуск или возврат в личную область после выхода из семьи).
     func seedDefaultsIfNeeded(householdID: String? = nil) throws {
-        guard try count() == 0 else { return }
+        guard try activeCount(in: householdID) == 0 else { return }
         for (index, item) in Self.defaults.enumerated() {
             let category = Category(
                 name: item.name,
