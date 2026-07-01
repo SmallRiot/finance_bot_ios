@@ -46,9 +46,47 @@ struct SavingRepository {
     }
 
     /// Пополнение/списание (amount может быть отрицательным).
-    func addContribution(_ saving: Saving, amount: Decimal) {
+    /// Дополнительно фиксирует операцию в истории (`SavingTransaction`).
+    func addContribution(
+        _ saving: Saving,
+        amount: Decimal,
+        note: String? = nil,
+        authorID: String? = nil,
+        householdID: String? = nil
+    ) {
         saving.currentAmount = max(0, saving.currentAmount + amount)
         saving.updatedAt = .now
+        context.insert(SavingTransaction(
+            savingID: saving.id,
+            amount: amount,
+            note: note,
+            authorID: authorID,
+            householdID: householdID ?? saving.householdID,
+            date: .now
+        ))
+    }
+
+    /// Мягко удаляет операцию и корректирует текущий баланс накопления.
+    func softDeleteTransaction(_ transaction: SavingTransaction, from saving: Saving) {
+        transaction.isDeleted = true
+        transaction.updatedAt = .now
+        saving.currentAmount = max(0, saving.currentAmount - transaction.amount)
+        saving.updatedAt = .now
+    }
+
+    /// Легаси: если у накопления есть баланс, но нет истории операций —
+    /// заводим открывающую операцию, чтобы сумма операций сходилась с `currentAmount`.
+    func ensureOpeningBalance(_ saving: Saving, transactions: [SavingTransaction]) {
+        guard transactions.isEmpty, saving.currentAmount != 0 else { return }
+        context.insert(SavingTransaction(
+            savingID: saving.id,
+            amount: saving.currentAmount,
+            note: "Начальный баланс",
+            authorID: nil,
+            householdID: saving.householdID,
+            date: saving.updatedAt
+        ))
+        try? context.save()
     }
 
     func softDelete(_ saving: Saving) {

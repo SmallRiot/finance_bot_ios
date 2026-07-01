@@ -11,10 +11,14 @@ import SwiftData
 struct ContributeView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthService.self) private var auth
+    @AppStorage("householdID") private var householdID: String = ""
 
     let saving: Saving
+    var startAsWithdrawal: Bool = false
 
     @State private var amountText: String = ""
+    @State private var noteText: String = ""
     @State private var isWithdrawal = false
     @FocusState private var focused: Bool
 
@@ -47,6 +51,10 @@ struct ContributeView: View {
                 } footer: {
                     Text("Сейчас накоплено: \(Money.string(saving.currentAmount, code: saving.currencyCode))")
                 }
+
+                Section {
+                    TextField("Комментарий (необязательно)", text: $noteText, axis: .vertical)
+                }
             }
             .navigationTitle(saving.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -58,13 +66,23 @@ struct ContributeView: View {
                     Button("Готово", action: apply).disabled(parsedAmount == nil)
                 }
             }
-            .onAppear { focused = true }
+            .onAppear {
+                isWithdrawal = startAsWithdrawal
+                focused = true
+            }
         }
     }
 
     private func apply() {
         guard let amount = parsedAmount else { return }
-        SavingRepository(context: context).addContribution(saving, amount: isWithdrawal ? -amount : amount)
+        let note = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        SavingRepository(context: context).addContribution(
+            saving,
+            amount: isWithdrawal ? -amount : amount,
+            note: note.isEmpty ? nil : note,
+            authorID: auth.uid,
+            householdID: householdID.isEmpty ? saving.householdID : householdID
+        )
         dismiss()
     }
 }

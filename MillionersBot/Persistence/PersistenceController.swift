@@ -17,6 +17,7 @@ enum PersistenceController {
         Category.self,
         Expense.self,
         Saving.self,
+        SavingTransaction.self,
         RecurringExpense.self,
     ])
 

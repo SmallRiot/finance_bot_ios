@@ -18,6 +18,7 @@ struct SavingsView: View {
 
     @State private var editorSaving: Saving?
     @State private var contributeSaving: Saving?
+    @State private var detailSaving: Saving?
     @State private var isAddingNew = false
 
     private var savings: [Saving] {
@@ -43,6 +44,7 @@ struct SavingsView: View {
                     }
                 }
             }
+            .navigationDestination(item: $detailSaving) { SavingDetailView(saving: $0) }
             .sheet(isPresented: $isAddingNew) { AddSavingView() }
             .sheet(item: $editorSaving) { AddSavingView(saving: $0) }
             .sheet(item: $contributeSaving) {
@@ -58,6 +60,7 @@ struct SavingsView: View {
                 ForEach(savings) { saving in
                     SavingCard(
                         saving: saving,
+                        onOpen: { detailSaving = saving },
                         onContribute: { contributeSaving = saving },
                         onEdit: { editorSaving = saving }
                     )
@@ -82,50 +85,66 @@ struct SavingsView: View {
 
 private struct SavingCard: View {
     let saving: Saving
+    let onOpen: () -> Void
     let onContribute: () -> Void
     let onEdit: () -> Void
 
     var body: some View {
         let color = Color(hex: saving.colorHex)
         VStack(alignment: .leading, spacing: 12) {
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(saving.title)
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(Money.string(saving.currentAmount, code: saving.currencyCode))
+                            .font(.title2.weight(.bold))
+                            .monospacedDigit()
+                        if let target = saving.targetAmount {
+                            Text("из \(Money.string(target, code: saving.currencyCode))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if saving.targetAmount != nil {
+                        ProgressView(value: saving.progress)
+                            .tint(color)
+                        HStack {
+                            Text("\(Int((saving.progress * 100).rounded()))%")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
             HStack {
-                Text(saving.title)
-                    .font(.headline)
-                Spacer()
+                Button(action: onContribute) {
+                    Label("Пополнить", systemImage: "plus.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(color)
+
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
-                        .foregroundStyle(.secondary)
+                        .frame(width: 44)
+                        .frame(maxHeight: .infinity)
                 }
+                .buttonStyle(.bordered)
+                .tint(.secondary)
             }
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(Money.string(saving.currentAmount, code: saving.currencyCode))
-                    .font(.title2.weight(.bold))
-                    .monospacedDigit()
-                if let target = saving.targetAmount {
-                    Text("из \(Money.string(target, code: saving.currencyCode))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if saving.targetAmount != nil {
-                ProgressView(value: saving.progress)
-                    .tint(color)
-                HStack {
-                    Text("\(Int((saving.progress * 100).rounded()))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-            }
-
-            Button(action: onContribute) {
-                Label("Пополнить", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(color)
         }
         .padding()
         .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))

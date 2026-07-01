@@ -84,6 +84,10 @@ final class SyncService {
             let dtos = snapshot?.documents.compactMap { try? $0.data(as: SavingDTO.self) } ?? []
             Task { @MainActor in self.applySavings(dtos) }
         })
+        listeners.append(collection(hid, "savingTransactions").addSnapshotListener { snapshot, _ in
+            let dtos = snapshot?.documents.compactMap { try? $0.data(as: SavingTransactionDTO.self) } ?? []
+            Task { @MainActor in self.applySavingTransactions(dtos) }
+        })
         listeners.append(collection(hid, "members").addSnapshotListener { snapshot, _ in
             let dtos = snapshot?.documents.compactMap { try? $0.data(as: MemberDTO.self) } ?? []
             Task { @MainActor in self.applyMembers(dtos) }
@@ -229,6 +233,34 @@ final class SyncService {
         }
     }
 
+    private func applySavingTransactions(_ dtos: [SavingTransactionDTO]) {
+        guard let hid = householdID else { return }
+        withRemoteApply {
+            for dto in dtos {
+                let existing = fetchSavingTransaction(dto.id)
+                if let existing {
+                    guard dto.updatedAt > existing.updatedAt else { continue }
+                    existing.savingID = dto.savingID
+                    existing.amount = Money.parse(dto.amount) ?? existing.amount
+                    existing.note = dto.note
+                    existing.authorID = dto.authorID
+                    existing.date = dto.date
+                    existing.isDeleted = dto.isDeleted
+                    existing.householdID = hid
+                    existing.updatedAt = dto.updatedAt
+                } else {
+                    let t = SavingTransaction(id: dto.id, savingID: dto.savingID,
+                                              amount: Money.parse(dto.amount) ?? 0,
+                                              note: dto.note, authorID: dto.authorID,
+                                              householdID: hid, date: dto.date,
+                                              isDeleted: dto.isDeleted, updatedAt: dto.updatedAt)
+                    context.insert(t)
+                }
+                watermark = max(watermark, dto.updatedAt)
+            }
+        }
+    }
+
     // MARK: - Push (SwiftData → Firestore)
 
     private func observeLocalSaves() {
@@ -255,6 +287,10 @@ final class SyncService {
             try? collection(hid, "savings").document(s.id).setData(from: SavingDTO(s))
             newWatermark = max(newWatermark, s.updatedAt)
         }
+        for t in (fetchAll(SavingTransaction.self)) where t.householdID == hid && t.updatedAt > watermark {
+            try? collection(hid, "savingTransactions").document(t.id).setData(from: SavingTransactionDTO(t))
+            newWatermark = max(newWatermark, t.updatedAt)
+        }
         for p in (fetchAll(UserProfile.self)) where p.householdID == hid && p.updatedAt > watermark {
             try? collection(hid, "members").document(p.id).setData(from: MemberDTO(p))
             newWatermark = max(newWatermark, p.updatedAt)
@@ -279,6 +315,9 @@ final class SyncService {
         }
         for s in fetchAll(Saving.self) where s.householdID == nil {
             s.householdID = hid; s.updatedAt = now
+        }
+        for t in fetchAll(SavingTransaction.self) where t.householdID == nil {
+            t.householdID = hid; t.updatedAt = now
         }
         for p in fetchAll(UserProfile.self) where p.householdID == nil {
             p.householdID = hid; p.updatedAt = now
@@ -308,6 +347,10 @@ final class SyncService {
 
     private func fetchSaving(_ id: String) -> Saving? {
         try? context.fetch(FetchDescriptor<Saving>(predicate: #Predicate { $0.id == id })).first
+    }
+
+    private func fetchSavingTransaction(_ id: String) -> SavingTransaction? {
+        try? context.fetch(FetchDescriptor<SavingTransaction>(predicate: #Predicate { $0.id == id })).first
     }
 
     private func fetchRecurring(_ id: String) -> RecurringExpense? {

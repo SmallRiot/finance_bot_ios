@@ -68,6 +68,28 @@ struct ExpenseDTO: Codable {
     }
 }
 
+struct SavingTransactionDTO: Codable {
+    var id: String
+    var savingID: String
+    var amount: String
+    var note: String?
+    var authorID: String?
+    var date: Date
+    var isDeleted: Bool
+    var updatedAt: Date
+
+    init(_ m: SavingTransaction) {
+        id = m.id
+        savingID = m.savingID
+        amount = "\(m.amount)"
+        note = m.note
+        authorID = m.authorID
+        date = m.date
+        isDeleted = m.isDeleted
+        updatedAt = m.updatedAt
+    }
+}
+
 struct RecurringExpenseDTO: Codable {
     var id: String
     var amount: String
