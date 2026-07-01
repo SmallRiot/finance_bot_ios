@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(SyncService.self) private var sync
     @Environment(AuthService.self) private var auth
+    @Environment(AppState.self) private var appState
     @AppStorage("householdID") private var householdID: String = ""
     @AppStorage("didOnboard") private var didOnboard: Bool = false
     @State private var selection: AppTab = RootView.initialTab
@@ -56,6 +57,11 @@ struct RootView: View {
             } else {
                 sync.start(householdID: id)
             }
+        }
+        .onOpenURL { url in
+            guard url.scheme == "millionersbot", url.host == "add" else { return }
+            selection = .expenses
+            appState.pendingAddExpense = true
         }
         .fullScreenCover(isPresented: .constant(!didOnboard)) {
             OnboardingView { didOnboard = true }

@@ -22,6 +22,7 @@ struct ExpensesView: View {
     @Query private var profiles: [UserProfile]
     @Environment(CurrencyService.self) private var currency
     @Environment(AuthService.self) private var auth
+    @Environment(AppState.self) private var appState
     @AppStorage("householdID") private var householdID: String = ""
 
     @State private var editorExpense: Expense?
@@ -76,6 +77,12 @@ struct ExpensesView: View {
             }
             .sheet(item: $editorExpense) { expense in
                 AddExpenseView(expense: expense)
+            }
+            .onChange(of: appState.pendingAddExpense, initial: true) { _, pending in
+                if pending {
+                    isAddingNew = true
+                    appState.pendingAddExpense = false
+                }
             }
             #if DEBUG
             .onAppear {
@@ -203,5 +210,6 @@ private struct ExpenseRow: View {
     ExpensesView()
         .environment(CurrencyService())
         .environment(AuthService())
+        .environment(AppState())
         .modelContainer(PersistenceController.preview)
 }

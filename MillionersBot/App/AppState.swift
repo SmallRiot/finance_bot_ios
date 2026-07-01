@@ -15,6 +15,9 @@ final class AppState {
     var currentHouseholdID: String?
     var syncStatus: SyncStatus = .idle
 
+    /// Запрос на открытие формы добавления траты (например, из виджета).
+    var pendingAddExpense: Bool = false
+
     enum SyncStatus: Equatable {
         case idle
         case syncing

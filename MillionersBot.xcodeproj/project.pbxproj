@@ -7,18 +7,54 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7396F8DE518986DD8348EF5D /* QuickAddWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B7CCD929C714FF3DCC43F6 /* QuickAddWidget.swift */; };
+		77E5B21198355B0A8C1C5520 /* QuickAddWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97435B685DEC55065356A107 /* QuickAddWidgetBundle.swift */; };
+		87BEE32CC67BDD0C7A02D79C /* QuickAddWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0D908E448680CDAC1A61DD80 /* QuickAddWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B8CC2A15C515D61D21CC4A68 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8498326B1A17DDCC2C3E4D2D /* Foundation.framework */; };
 		FB00000000000000000000C0 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB00000000000000000000B0 /* FirebaseCore */; };
 		FB00000000000000000000C1 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FB00000000000000000000B1 /* FirebaseAuth */; };
 		FB00000000000000000000C2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB00000000000000000000B2 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		C2EC4221C9803F477BB9AF7E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 833EC3ED2FC9DA7100F56EEF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 67E55FA68910BC9F77A11F5B;
+			remoteInfo = QuickAddWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		946E0953613C5E66760704F5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				87BEE32CC67BDD0C7A02D79C /* QuickAddWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0D908E448680CDAC1A61DD80 /* QuickAddWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickAddWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		42B7CCD929C714FF3DCC43F6 /* QuickAddWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickAddWidget.swift; sourceTree = "<group>"; };
+		666C7F9BDA5C746559AF802B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		833EC3F52FC9DA7100F56EEF /* MillionersBot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MillionersBot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8498326B1A17DDCC2C3E4D2D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		97435B685DEC55065356A107 /* QuickAddWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickAddWidgetBundle.swift; sourceTree = "<group>"; };
+		B6F082960C229B64B6796FED /* QuickAddWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = QuickAddWidget.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		833EC3F72FC9DA7100F56EEF /* MillionersBot */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = MillionersBot;
 			sourceTree = "<group>";
 		};
@@ -35,14 +71,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FBA322350349B5AC91165D27 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B8CC2A15C515D61D21CC4A68 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		66DC45621DBA1497017EA9F2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				95F9F8926F43076C1FB29BDB /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		833EC3EC2FC9DA7100F56EEF = {
 			isa = PBXGroup;
 			children = (
 				833EC3F72FC9DA7100F56EEF /* MillionersBot */,
 				833EC3F62FC9DA7100F56EEF /* Products */,
+				66DC45621DBA1497017EA9F2 /* Frameworks */,
+				E42EA79134D66C62E5C042E8 /* QuickAddWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -50,13 +104,51 @@
 			isa = PBXGroup;
 			children = (
 				833EC3F52FC9DA7100F56EEF /* MillionersBot.app */,
+				0D908E448680CDAC1A61DD80 /* QuickAddWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		95F9F8926F43076C1FB29BDB /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				8498326B1A17DDCC2C3E4D2D /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		E42EA79134D66C62E5C042E8 /* QuickAddWidget */ = {
+			isa = PBXGroup;
+			children = (
+				97435B685DEC55065356A107 /* QuickAddWidgetBundle.swift */,
+				42B7CCD929C714FF3DCC43F6 /* QuickAddWidget.swift */,
+				666C7F9BDA5C746559AF802B /* Info.plist */,
+				B6F082960C229B64B6796FED /* QuickAddWidget.entitlements */,
+			);
+			name = QuickAddWidget;
+			path = QuickAddWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		67E55FA68910BC9F77A11F5B /* QuickAddWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 77632928123ABC07924EC559 /* Build configuration list for PBXNativeTarget "QuickAddWidgetExtension" */;
+			buildPhases = (
+				560439BCAAD720D1BE4458EF /* Sources */,
+				FBA322350349B5AC91165D27 /* Frameworks */,
+				73CEEA1F4DE5EAB0B4403E43 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QuickAddWidgetExtension;
+			productName = QuickAddWidgetExtension;
+			productReference = 0D908E448680CDAC1A61DD80 /* QuickAddWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		833EC3F42FC9DA7100F56EEF /* MillionersBot */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 833EC4002FC9DA7200F56EEF /* Build configuration list for PBXNativeTarget "MillionersBot" */;
@@ -64,10 +156,12 @@
 				833EC3F12FC9DA7100F56EEF /* Sources */,
 				833EC3F22FC9DA7100F56EEF /* Frameworks */,
 				833EC3F32FC9DA7100F56EEF /* Resources */,
+				946E0953613C5E66760704F5 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				53B23D77AF3A16FB896FB5D4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				833EC3F72FC9DA7100F56EEF /* MillionersBot */,
@@ -115,11 +209,19 @@
 			projectRoot = "";
 			targets = (
 				833EC3F42FC9DA7100F56EEF /* MillionersBot */,
+				67E55FA68910BC9F77A11F5B /* QuickAddWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		73CEEA1F4DE5EAB0B4403E43 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		833EC3F32FC9DA7100F56EEF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -130,6 +232,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		560439BCAAD720D1BE4458EF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77E5B21198355B0A8C1C5520 /* QuickAddWidgetBundle.swift in Sources */,
+				7396F8DE518986DD8348EF5D /* QuickAddWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		833EC3F12FC9DA7100F56EEF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -139,7 +250,74 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		53B23D77AF3A16FB896FB5D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = QuickAddWidgetExtension;
+			target = 67E55FA68910BC9F77A11F5B /* QuickAddWidgetExtension */;
+			targetProxy = C2EC4221C9803F477BB9AF7E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		0A923D83B3295A325301266C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KP54874C49;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = QuickAddWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.danila.MillionersBot.QuickAddWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		6890CD111DA4AC37FBDF6FDD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KP54874C49;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = QuickAddWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.danila.MillionersBot.QuickAddWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		833EC3FE2FC9DA7200F56EEF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -270,7 +448,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KP54874C49;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/MillionersBot-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -302,7 +481,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KP54874C49;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/MillionersBot-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +508,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		77632928123ABC07924EC559 /* Build configuration list for PBXNativeTarget "QuickAddWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A923D83B3295A325301266C /* Release */,
+				6890CD111DA4AC37FBDF6FDD /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		833EC3F02FC9DA7100F56EEF /* Build configuration list for PBXProject "MillionersBot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
