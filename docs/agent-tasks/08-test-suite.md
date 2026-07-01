@@ -1,63 +1,66 @@
-# Фича 8 (улучшение №8) — Тесты + прогон при каждом изменении
+# Фича 8 — Тесты (ОТЛОЖЕНО, план на будущее)
 
-Прочитать сперва `00-codebase-map.md` и `BUILD.md`.
-Делать ПОСЛЕ фич 5/6/7 (чтобы тесты покрывали финальный код: регулярные, сбережения и т.д.).
+Статус: **отложено**. Попытка добавить тест-таргет упёрлась в блокер SwiftData
+(ниже). Инфраструктура и черновики тестов откачены; код фич 1–7 — рабочий и запушен.
+Возобновлять — с учётом раздела «Блокер и решение».
 
-## Часть 1. Тест-таргет (pbxproj — через гем xcodeproj, НЕ руками)
-Проекта тест-таргета сейчас нет. Добавить `MillionersBotTests` (unit-test bundle),
-хостится приложением (`TEST_HOST`/`BUNDLE_LOADER` на MillionersBot.app), зависимость на app,
-`@testable import MillionersBot`. Firebase слинкуется через хост; `GoogleService-Info.plist`
-уже локально есть, поэтому запуск ок (для CI понадобится плист — отметить).
+## Блокер, который нужно обойти (главное)
+Юнит-тесты, **хостящиеся приложением** (TEST_HOST=MillionersBot.app, нужно для
+`@testable import`), падают жёстким `SIGTRAP (brk 1)` на `ModelContext.insert`.
+Причина: в одном процессе оказываются **ДВА `ModelContainer` на одну SwiftData-схему** —
+контейнер приложения-хоста (создаётся в `MillionersBotApp.init`) и контейнер, который
+создаёт тест. Для этой версии SwiftData это фатально (роняет процесс на первом insert).
 
-Скрипт `scripts/add_test_target.rb` (идемпотентный, по образцу `add_widget_target.rb`):
-- `project.new_target(:unit_test_bundle, 'MillionersBotTests', :ios, '26.2')`;
-- build settings: `PRODUCT_BUNDLE_IDENTIFIER=com.danila.MillionersBotTests`,
-  `TEST_HOST = $(BUILT_PRODUCTS_DIR)/MillionersBot.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MillionersBot`,
-  `BUNDLE_LOADER = $(TEST_HOST)`, `SWIFT_VERSION=5.0`, `DEVELOPMENT_TEAM=KP54874C49`,
-  `GENERATE_INFOPLIST_FILE=YES`, `IPHONEOS_DEPLOYMENT_TARGET=26.2`;
-- синхронизируемая группа/папка `MillionersBotTests/` (или явные файловые ссылки);
-- зависимость `test_target.add_dependency(app)`;
-- добавить таргет в Test-action схемы `MillionersBot` (общая схема в `xcshareddata/xcschemes/`;
-  если её нет — создать shared-схему через `Xcodeproj::XCScheme`, добавить app как buildable и
-  тест-таргет в `test_action`). Проверить, что `xcodebuild test -scheme MillionersBot` видит тесты.
+Что НЕ помогло:
+- `@Suite(.serialized)` + `-parallel-testing-enabled NO` — краш остаётся (это не гонка).
+- Non-hosted (логический) бандл без TEST_HOST — ломает `@testable import`
+  (символы приложения лежат в его executable, нужен `BUNDLE_LOADER`).
+- Пропуск `FirebaseApp.configure()` под тестами — ломает `AuthService()` в `@State`
+  приложения (`Auth.auth()` требует сконфигурированный Firebase).
+- Просто in-memory контейнер и в host, и в тестах — всё равно два контейнера → краш.
 
-## Часть 2. Тесты (Swift Testing, `import Testing` + `@testable import MillionersBot`)
-Все — на in-memory контейнере: `PersistenceController.makeContainer(inMemory: true)`.
-Firebase/SyncService напрямую НЕ трогаем (нужен Firestore) — тестируем чистую логику и DTO.
+## Решение, которое надо реализовать (не доведено, но проверено по частям)
+Сделать так, чтобы в процессе был **ровно один** `ModelContainer` — общий для host и тестов:
+1. `PersistenceController`: добавить `@MainActor static var testContainer: ModelContainer?`.
+2. `MillionersBotApp.init`: оставить `FirebaseApp.configure()`; определить тестовый режим
+   `let isTesting = NSClassFromString("XCTestCase") != nil
+      || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil`;
+   создать `makeContainer(inMemory: isTesting)` и при `isTesting` положить его в
+   `PersistenceController.testContainer` (host под тестами — просто оболочка).
+3. В тестах НЕ создавать свой контейнер, а брать `PersistenceController.testContainer!`
+   и на каждый тест делать свежий `ModelContext(container)` + очистку всех типов
+   (`try? ctx.delete(model: Expense.self)` … для Category/Saving/SavingTransaction/
+   RecurringExpense/UserProfile/Household), затем `ctx.save()` — для изоляции тестов.
+   Хелпер вынести в `MillionersBotTests/TestSupport.swift`.
+Это гарантирует один контейнер (нет brk), изоляцию (очистка) и рабочий `@testable`+Firebase.
 
-Покрыть:
-- **Money**: `parse`/`string` (запятая/точка, пусто, отрицательные, точность Decimal).
-- **ExpenseRepository**: add (в т.ч. с явным `id`), update ставит `updatedAt`, softDelete.
-- **CategoryRepository**: `reorder` меняет только сдвинутые и ставит updatedAt; sortOrder при add; seedDefaults.
-- **RecurringService.postDue**: (а) правило из прошлого месяца создаёт occurrence за текущий;
-  (б) день 31 привязки → клампится на короткий месяц (фев); (в) дедуп: повторный postDue не
-  задваивает (одинаковый `id "\(ruleID)#\(yyyy-MM)"`); (г) `isActive=false`/`isDeleted=true` — не постит.
-- **SavingRepository**: addContribution меняет currentAmount и создаёт `SavingTransaction`;
-  `ensureOpeningBalance` для легаси (currentAmount>0, нет операций).
-- **DTO round-trip**: Model → DTO → JSON → decode сохраняет поля и точность денег
-  (Category/Expense/Recurring/SavingTransaction/Saving) — деньги через String.
-- **Occurrence-id детерминизм**: одна пара (ruleID, period) → один id.
-- **CurrencyService.convert**: базовые кейсы (та же валюта → та же сумма; nil при отсутствии курса).
+## Тест-таргет (pbxproj — гем xcodeproj, скрипт `scripts/add_test_target.rb`)
+Проверено, что работает: `project.new_target(:unit_test_bundle, 'MillionersBotTests', :ios, '26.2')`,
+хост `TEST_HOST=$(BUILT_PRODUCTS_DIR)/MillionersBot.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MillionersBot`,
+`BUNDLE_LOADER=$(TEST_HOST)`, bundle id `com.danila.MillionersBotTests`, team KP54874C49,
+`SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`, явные файловые ссылки на тест-файлы,
+`test.add_dependency(app)`, и общая схема через `Xcodeproj::XCScheme`
+(`add_build_target(app)`, `add_test_target(test)`, `set_launch_target(app)`,
+`save_as(project.path, 'MillionersBot', true)`). Всё это собиралось; падение было только
+в рантайме на insert (см. блокер).
 
-Именование файлов: `MillionersBotTests/<Area>Tests.swift`.
+## Что покрывать (Swift Testing, `import Testing`, все сьюты `@MainActor`)
+Черновики были написаны для: Money (parse/string), CurrencyService.convert
+(та же валюта / отсутствие курса — на вымышленных кодах, чтобы не зависеть от кэша),
+ExpenseRepository (add с явным id, softDelete), CategoryRepository (sortOrder/reorder/
+seedDefaults идемпотентность), RecurringService.postDue (пропущенные месяцы, дедуп по
+occ-id, неактивные не постятся, детерминизм id, конец месяца), SavingRepository
+(addContribution пишет транзакцию, клампинг при снятии, ensureOpeningBalance,
+softDeleteTransaction корректирует баланс), DTO round-trip (Category/Expense/Recurring/
+SavingTransaction, деньги через строку).
+Money/CurrencyService/DTO-тесты проходили (не трогают контейнер); падали только те,
+что делают `context.insert` — из-за блокера.
 
-## Часть 3. Прогон при каждом изменении (хук)
-Настраивается отдельно через настройку харнесса (skill update-config), не агентом.
-Из-за времени iOS-тестов (сборка+симулятор ~1–2 мин) прогон на КАЖДОЕ нажатие нецелесообразен.
-План: хук на завершение хода (Stop) или ручная быстрая команда, запускающая
-`xcodebuild test -scheme MillionersBot -destination 'platform=iOS Simulator,id=A0CC009C-...'`
-только если менялись `*.swift`. Кэдэнс согласовать с пользователем.
+## Прогон — ворота перед пушем (согласовано с пользователем)
+Когда тесты заведутся: настроить `pre-push` git-hook (committed `scripts/hooks/pre-push`
++ `git config core.hooksPath scripts/hooks`), запускающий
+`xcodebuild test -scheme MillionersBot -destination 'platform=iOS Simulator,id=<sim>'`
+и блокирующий пуш при красных тестах.
 
-## Критерии приёмки
-1. `xcodebuild test -scheme MillionersBot -destination 'platform=iOS Simulator,id=A0CC009C-EEB8-45D9-9628-E795C11F46A4'` → все тесты зелёные.
-2. Тест-таргет собирается и хостится приложением; `@testable import` работает.
-3. Покрыты пункты из Части 2.
-
-## Коммит и пуш
-Отдельный коммит (скрипт, тест-таргет, тесты, правка pbxproj/схемы), затем
-`git push origin feature/finance-tracker`.
-```
-Юнит-тесты: логика трат, категорий, регулярных, сбережений, DTO + тест-таргет
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-```
+## Коммит
+Когда доделаем: отдельный коммит + `git push`.
