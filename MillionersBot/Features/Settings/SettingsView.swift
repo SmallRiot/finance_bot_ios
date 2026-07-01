@@ -49,6 +49,11 @@ struct SettingsView: View {
                     } label: {
                         Label("Категории", systemImage: "tag")
                     }
+                    NavigationLink {
+                        RecurringView()
+                    } label: {
+                        Label("Регулярные платежи", systemImage: "arrow.clockwise")
+                    }
                 }
 
                 Section("Синхронизация") {

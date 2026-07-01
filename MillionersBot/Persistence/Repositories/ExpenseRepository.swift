@@ -19,9 +19,11 @@ struct ExpenseRepository {
         note: String?,
         date: Date,
         authorID: String? = nil,
-        householdID: String? = nil
+        householdID: String? = nil,
+        id: String = UUID().uuidString
     ) -> Expense {
         let expense = Expense(
+            id: id,
             amount: amount,
             currencyCode: currencyCode,
             categoryID: categoryID,

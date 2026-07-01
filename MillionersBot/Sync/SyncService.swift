@@ -88,6 +88,10 @@ final class SyncService {
             let dtos = snapshot?.documents.compactMap { try? $0.data(as: MemberDTO.self) } ?? []
             Task { @MainActor in self.applyMembers(dtos) }
         })
+        listeners.append(collection(hid, "recurring").addSnapshotListener { snapshot, _ in
+            let dtos = snapshot?.documents.compactMap { try? $0.data(as: RecurringExpenseDTO.self) } ?? []
+            Task { @MainActor in self.applyRecurring(dtos) }
+        })
     }
 
     private func applyMembers(_ dtos: [MemberDTO]) {
@@ -165,6 +169,38 @@ final class SyncService {
         }
     }
 
+    private func applyRecurring(_ dtos: [RecurringExpenseDTO]) {
+        guard let hid = householdID else { return }
+        withRemoteApply {
+            for dto in dtos {
+                let existing = fetchRecurring(dto.id)
+                if let existing {
+                    guard dto.updatedAt > existing.updatedAt else { continue }
+                    existing.amount = Money.parse(dto.amount) ?? existing.amount
+                    existing.currencyCode = dto.currencyCode
+                    existing.categoryID = dto.categoryID
+                    existing.note = dto.note
+                    existing.authorID = dto.authorID
+                    existing.anchorDate = dto.anchorDate
+                    existing.lastPostedPeriod = dto.lastPostedPeriod
+                    existing.isActive = dto.isActive
+                    existing.isDeleted = dto.isDeleted
+                    existing.householdID = hid
+                    existing.updatedAt = dto.updatedAt
+                } else {
+                    let r = RecurringExpense(id: dto.id, amount: Money.parse(dto.amount) ?? 0,
+                                             currencyCode: dto.currencyCode, categoryID: dto.categoryID,
+                                             note: dto.note, authorID: dto.authorID, householdID: hid,
+                                             anchorDate: dto.anchorDate, lastPostedPeriod: dto.lastPostedPeriod,
+                                             isActive: dto.isActive, isDeleted: dto.isDeleted,
+                                             updatedAt: dto.updatedAt)
+                    context.insert(r)
+                }
+                watermark = max(watermark, dto.updatedAt)
+            }
+        }
+    }
+
     private func applySavings(_ dtos: [SavingDTO]) {
         guard let hid = householdID else { return }
         withRemoteApply {
@@ -223,6 +259,10 @@ final class SyncService {
             try? collection(hid, "members").document(p.id).setData(from: MemberDTO(p))
             newWatermark = max(newWatermark, p.updatedAt)
         }
+        for r in (fetchAll(RecurringExpense.self)) where r.householdID == hid && r.updatedAt > watermark {
+            try? collection(hid, "recurring").document(r.id).setData(from: RecurringExpenseDTO(r))
+            newWatermark = max(newWatermark, r.updatedAt)
+        }
         watermark = newWatermark
     }
 
@@ -242,6 +282,9 @@ final class SyncService {
         }
         for p in fetchAll(UserProfile.self) where p.householdID == nil {
             p.householdID = hid; p.updatedAt = now
+        }
+        for r in fetchAll(RecurringExpense.self) where r.householdID == nil {
+            r.householdID = hid; r.updatedAt = now
         }
         try? context.save()
     }
@@ -265,6 +308,10 @@ final class SyncService {
 
     private func fetchSaving(_ id: String) -> Saving? {
         try? context.fetch(FetchDescriptor<Saving>(predicate: #Predicate { $0.id == id })).first
+    }
+
+    private func fetchRecurring(_ id: String) -> RecurringExpense? {
+        try? context.fetch(FetchDescriptor<RecurringExpense>(predicate: #Predicate { $0.id == id })).first
     }
 
     private func fetchProfile(_ id: String) -> UserProfile? {

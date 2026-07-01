@@ -68,6 +68,34 @@ struct ExpenseDTO: Codable {
     }
 }
 
+struct RecurringExpenseDTO: Codable {
+    var id: String
+    var amount: String
+    var currencyCode: String
+    var categoryID: String?
+    var note: String?
+    var authorID: String?
+    var anchorDate: Date
+    var lastPostedPeriod: String
+    var isActive: Bool
+    var isDeleted: Bool
+    var updatedAt: Date
+
+    init(_ m: RecurringExpense) {
+        id = m.id
+        amount = "\(m.amount)"
+        currencyCode = m.currencyCode
+        categoryID = m.categoryID
+        note = m.note
+        authorID = m.authorID
+        anchorDate = m.anchorDate
+        lastPostedPeriod = m.lastPostedPeriod
+        isActive = m.isActive
+        isDeleted = m.isDeleted
+        updatedAt = m.updatedAt
+    }
+}
+
 struct SavingDTO: Codable {
     var id: String
     var title: String

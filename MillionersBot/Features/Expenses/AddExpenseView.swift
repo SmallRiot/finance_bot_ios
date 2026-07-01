@@ -32,7 +32,17 @@ struct AddExpenseView: View {
     @State private var currencyCode: String = CurrencyCode.default.rawValue
     @State private var note: String = ""
     @State private var date: Date = .now
+    @State private var isRecurring: Bool = false
     @FocusState private var amountFocused: Bool
+
+    private var dayOfMonth: Int {
+        Calendar.current.component(.day, from: date)
+    }
+
+    private func periodString(from date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month], from: date)
+        return String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
+    }
 
     private var scopedCategories: [Category] {
         categories.filter { inScope($0.householdID, current: householdID) }
@@ -98,6 +108,16 @@ struct AddExpenseView: View {
                     DatePicker("Дата", selection: $date, displayedComponents: [.date, .hourAndMinute])
                 }
 
+                if expense == nil {
+                    Section {
+                        Toggle("Повторять каждый месяц", isOn: $isRecurring)
+                    } footer: {
+                        if isRecurring {
+                            Text("Будет добавляться каждый месяц \(dayOfMonth) числа.")
+                        }
+                    }
+                }
+
                 if let expense, let authorName = authorName(for: expense) {
                     Section {
                         LabeledContent("Добавил", value: authorName)
@@ -145,6 +165,38 @@ struct AddExpenseView: View {
                 note: trimmedNote.isEmpty ? nil : trimmedNote,
                 date: date
             )
+        } else if isRecurring {
+            let ruleID = UUID().uuidString
+            let period = periodString(from: date)
+            let occID = "\(ruleID)#\(period)"
+            let scopedHousehold = householdID.isEmpty ? nil : householdID
+            let cleanNote = trimmedNote.isEmpty ? nil : trimmedNote
+            // Трата этого месяца — occurrence с детерминированным id.
+            repo.add(
+                amount: amount,
+                currencyCode: currencyCode,
+                categoryID: selectedCategoryID,
+                note: cleanNote,
+                date: date,
+                authorID: auth.uid,
+                householdID: scopedHousehold,
+                id: occID
+            )
+            // Правило: дальше движок сам создаёт траты каждый месяц.
+            let rule = RecurringExpense(
+                id: ruleID,
+                amount: amount,
+                currencyCode: currencyCode,
+                categoryID: selectedCategoryID,
+                note: cleanNote,
+                authorID: auth.uid,
+                householdID: scopedHousehold,
+                anchorDate: date,
+                lastPostedPeriod: period,
+                isActive: true
+            )
+            context.insert(rule)
+            try? context.save()
         } else {
             repo.add(
                 amount: amount,
