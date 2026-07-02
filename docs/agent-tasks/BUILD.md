@@ -26,6 +26,28 @@ sleep 4
 xcrun simctl io A0CC009C-EEB8-45D9-9628-E795C11F46A4 screenshot /tmp/shot.png
 ```
 
+## Установка на реальный телефон (devicectl)
+Требует Apple ID в Xcode (Settings → Accounts) для авто-провижининга и «Доверять»
+сертификату на самом устройстве (Настройки → Основные → VPN и управление устройством).
+```bash
+# UDID: xcrun xctrace list devices | grep -i <имя>   → значение в скобках
+UDID=<device-udid>
+DDx=<scratchpad>/DD-device
+xcodebuild -project MillionersBot.xcodeproj -scheme MillionersBot -configuration Debug \
+  -destination "id=$UDID" -derivedDataPath "$DDx" -allowProvisioningUpdates build
+APP="$DDx/Build/Products/Debug-iphoneos/MillionersBot.app"
+xcrun devicectl device install app --device $UDID "$APP"
+xcrun devicectl device process launch --device $UDID com.danila.MillionersBot
+```
+Ошибка запуска «profile has not been explicitly trusted» → доверить сертификат на телефоне.
+«device … Locked» → разблокировать телефон. Подпись free-аккаунта живёт ~7 дней.
+
+## Правка проекта (гем xcodeproj)
+Гем поставлен user-install. Запуск скриптов из `scripts/`:
+```bash
+GEM_HOME=$(ruby -e 'puts Gem.user_dir') ruby scripts/add_widget_target.rb
+```
+
 ## Требования
 - Нужен `MillionersBot/GoogleService-Info.plist` (не в git). Без него краш на старте
   в `FirebaseApp.configure()`. Файл уже на месте локально.

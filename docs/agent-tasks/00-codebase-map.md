@@ -1,107 +1,122 @@
 # MillionersBot — карта кода для агентов
 
-Общий контекст для фич, трогающих категории и синхронизацию.
-Читать вместе с конкретным спеком фичи (`01-*.md`, `02-*.md`).
+Общий контекст для фич. Читать вместе с конкретным спеком (`01-*.md` … `08-*.md`).
+Актуально на коммит с фиксом сидинга категорий (`f6f7fb9`+).
 
 ## Стек
 - SwiftUI + SwiftData (локально), Firebase Firestore (синк семьи).
-- Target: `MillionersBot`, проект `MillionersBot.xcodeproj`, схема `MillionersBot`.
-- Запуск/сборка: см. `docs/agent-tasks/BUILD.md`.
+- App target `MillionersBot` + расширение `QuickAddWidgetExtension` (виджет).
+- Проект `MillionersBot.xcodeproj`, схема `MillionersBot`, iOS deployment 26.2.
+- Сборка/запуск/установка на устройство: см. `docs/agent-tasks/BUILD.md`.
+- Правка pbxproj — только через гем `xcodeproj` (скрипт в `scripts/`), не руками.
 
-## Модель Category
-`MillionersBot/Models/Category.swift`
+## Модели (`MillionersBot/Models/`), все в `PersistenceController.schema`
 ```swift
-@Model
-final class Category {
+@Model final class Category {
     @Attribute(.unique) var id: String
-    var name: String
-    var iconSystemName: String
-    var colorHex: String
+    var name, iconSystemName, colorHex: String
     var householdID: String?
     var isArchived: Bool
-    var sortOrder: Int        // порядок в списке (уже есть)
-    var updatedAt: Date       // last-write-wins для синка
-}
-```
-
-## Модель Expense
-`MillionersBot/Models/Expense.swift`
-```swift
-@Model final class Expense {
-    @Attribute(.unique) var id: String
-    var amount: Decimal
-    var currencyCode: String
-    var categoryID: String?   // FK → Category.id
-    var authorID: String?
-    var note: String?
-    var date: Date
-    var householdID: String?
-    var isDeleted: Bool
+    var sortOrder: Int              // порядок (drag reorder, фича 1)
+    var monthlyLimit: Decimal?      // месячный лимит (фича 2)
     var updatedAt: Date
 }
+@Model final class Expense {
+    @Attribute(.unique) var id: String
+    var amount: Decimal; var currencyCode: String
+    var categoryID: String?         // FK → Category.id
+    var authorID: String?; var note: String?
+    var date: Date; var householdID: String?
+    var isDeleted: Bool; var updatedAt: Date
+}
+@Model final class Saving {
+    @Attribute(.unique) var id: String
+    var title: String; var targetAmount: Decimal?; var currentAmount: Decimal
+    var currencyCode, colorHex: String
+    var householdID: String?; var isDeleted: Bool; var updatedAt: Date
+    var progress: Double            // computed 0…1
+}
+@Model final class SavingTransaction {  // история сбережений (фича 5)
+    @Attribute(.unique) var id: String
+    var savingID: String            // FK → Saving.id
+    var amount: Decimal             // + пополнение, − снятие
+    var note, authorID, householdID: String?
+    var date: Date; var isDeleted: Bool; var updatedAt: Date
+}
+@Model final class RecurringExpense {   // регулярные траты (фича 4)
+    @Attribute(.unique) var id: String
+    var amount: Decimal; var currencyCode: String
+    var categoryID, note, authorID, householdID: String?
+    var anchorDate: Date            // число месяца + время суток
+    var lastPostedPeriod: String    // "yyyy-MM" последнего созданного месяца
+    var isActive, isDeleted: Bool; var updatedAt: Date
+}
+// плюс UserProfile, Household, CurrencyCode (enum).
 ```
 
-## Экран категорий
-`MillionersBot/Features/Categories/CategoriesView.swift`
-- `@Query` уже сортирует по `sortOrder`, затем `name`:
-  ```swift
-  @Query(filter: #Predicate<Category> { !$0.isArchived },
-         sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.name)])
-  private var categories: [Category]
-  ```
-- `scopedCategories` фильтрует по `householdID` (текущая семья).
-- `ForEach(scopedCategories)` + `.onDelete(perform: archive)` (свайп = архив, не удаление).
-- `.onMove` — ПОКА НЕТ (фича 1).
+## Область видимости (scope)
+`MillionersBot/Support/HouseholdScope.swift` — `inScope(entityHouseholdID, current:)`:
+в семье показываем записи семьи, вне семьи — локальные (`householdID == nil`).
+Экраны фильтруют через `@AppStorage("householdID")` + `inScope(...)`.
 
-`MillionersBot/Features/Categories/CategoryEditorView.swift`
-- Редактирует name / icon (24 SF Symbols) / color (палитра из 12).
-- `save()` → `CategoryRepository.update(...)`.
+## Репозитории (`MillionersBot/Persistence/Repositories/`)
+- `ExpenseRepository`: `add(...)` (есть необязательный `id:` для детерминированных
+  occurrence-id регулярных), `update`, `softDelete`.
+- `CategoryRepository`: `add/update` (с `monthlyLimit`), `reorder(_:)` (drag, обновляет
+  updatedAt только у сдвинутых), `archive`, `activeCount(in:)` и `seedDefaultsIfNeeded(householdID:)`
+  — сидинг дефолтов ПО ОБЛАСТИ (вызывается из `RootView.onChange(of: householdID)` при
+  входе в личную область; фикс бага «после выхода из семьи нет категорий»).
+- `SavingRepository`: `addContribution(_:amount:note:authorID:householdID:)` пишет и
+  `SavingTransaction`; `softDeleteTransaction` корректирует `currentAmount`;
+  `ensureOpeningBalance` для легаси-сбережений без истории.
 
-`MillionersBot/Persistence/Repositories/CategoryRepository.swift`
-- `add(...)`: `sortOrder = active().count` (в конец списка).
-- `update(_:name:icon:colorHex:)`: НЕ трогает `sortOrder`, ставит `updatedAt = .now`.
+## Постинг регулярных трат
+`MillionersBot/App/RecurringService.swift` — `postDue(context:)`: по активным правилам
+создаёт недостающие ежемесячные Expense с детерминированным id `"\(ruleID)#\(yyyy-MM)"`
+(дедуп в семье), клампит день на длину месяца. Вызывается из `MillionersBotApp` (`.task`
+и `scenePhase == .active`).
 
-## Синхронизация (КЛЮЧЕВОЕ — не сломать)
-`MillionersBot/Sync/SyncService.swift`
-- Push (SwiftData → Firestore), `pushDirty()`:
-  ```swift
-  for c in fetchAll(Category.self) where c.householdID == hid && c.updatedAt > watermark {
-      try? collection(hid, "categories").document(c.id).setData(from: CategoryDTO(c))
-      newWatermark = max(newWatermark, c.updatedAt)
-  }
-  ```
-- Pull (Firestore → SwiftData), `applyCategories(_:)`: last-write-wins по `updatedAt`,
-  копирует поля DTO в существующую модель, включая `sortOrder`.
-- **Watermark** отсекает эхо: любое изменение попадёт в push только если `updatedAt > watermark`.
-  → Любое поле, которое меняем, ОБЯЗАНО обновлять `updatedAt = .now`, иначе не синкнется.
+## Синхронизация (КЛЮЧЕВОЕ — не сломать) `MillionersBot/Sync/SyncService.swift`
+Паттерн одинаков для каждой сущности — listener + `apply<Entity>` (upsert, last-write-wins
+по `updatedAt`, деньги через `Money.parse`, двигает watermark) + цикл в `pushDirty`
+(`fetchAll(...) where householdID == hid && updatedAt > watermark` → `setData(from: DTO)`) +
+привязка в `adoptLocalData` + `fetch<Entity>` helper.
+- Коллекции: `categories`, `expenses`, `savings`, `savingTransactions`, `recurring`, `members`.
+- **Watermark** отсекает эхо и persist'ится в UserDefaults по семье (`syncWatermark.<hid>`,
+  фича 7). Любое изменённое поле модели ОБЯЗАНО ставить `updatedAt = .now`.
+- Добавляя новую синкаемую сущность: модель → DTO → listener+apply → push-цикл →
+  adoptLocalData → fetch-helper. `firestore.rules` НЕ трогать (wildcard
+  `match /{collection}/{docId}` уже покрывает любую вложенную коллекцию семьи).
 
-`MillionersBot/Sync/DTO/SyncDTOs.swift`
-- `CategoryDTO: Codable` — зеркало полей Category (уже включает `sortOrder`).
-- `ExpenseDTO`: `Decimal` сериализуется как `String` (`amount = "\(m.amount)"`) для точности.
-  Тот же приём использовать для денежных полей.
+`MillionersBot/Sync/DTO/SyncDTOs.swift` — Codable-зеркала: Member/Category/Expense/Saving/
+SavingTransaction/RecurringExpense DTO. Деньги — строкой (`"\(m.amount)"`) для точности Decimal.
 
-## Структура Firestore
+## Firestore
 ```
-households/{householdID}
-  ├─ categories/{categoryID}
-  ├─ expenses/{expenseID}
-  ├─ savings/{savingID}
-  └─ (memberIDs: [uid] в самом документе household)
+households/{hid}
+  ├─ categories/{id}   ├─ expenses/{id}         ├─ savings/{id}
+  ├─ savingTransactions/{id}   ├─ recurring/{id}   └─ members/{uid}
+  (memberIDs: [uid] в самом документе household)
 ```
-`firestore.rules`: доступ к вложенным коллекциям только членам (`uid in memberIDs`).
-Новые поля внутри существующих документов правил НЕ требуют.
 
-## Агрегация трат по категории (для лимитов)
-`MillionersBot/Features/Stats/StatsView.swift`
-- `expensesInPeriod`: фильтр по scope + `date >= interval.start && date < interval.end`.
-- Суммирование в базовой валюте через `inBase($0)` (конвертация валют).
-- Группировка: `Dictionary(grouping: expensesInPeriod, by: { $0.categoryID ?? "—" })`.
+## Валюта
+`MillionersBot/Services/CurrencyService.swift` — `convert(_:from:to:)` (nil если курса нет).
+Итоги в базовой валюте через `@AppStorage("baseCurrency")` + `inBase(_:)`
+(см. `StatsView`, `ExpensesView` — единый паттерн, фича 6).
+
+## Виджет
+Target `QuickAddWidgetExtension` (папка `QuickAddWidget/`): одна кнопка «+ Трата»
+(домашний + локскрин) с deep-link `millionersbot://add`. Схема зарегистрирована в
+`Config/MillionersBot-Info.plist` (ВНЕ синхронизируемой папки `MillionersBot/`!),
+обработка — `RootView.onOpenURL` → `AppState.pendingAddExpense` → `ExpensesView` открывает
+`AddExpenseView`. Скрипт таргета: `scripts/add_widget_target.rb`.
 
 ## Правила для агентов
-1. Каждая фича = один коммит. Коммитить ТОЛЬКО файлы кода фичи (не эти docs).
-2. Сообщения коммитов — на русском, в стиле репозитория (см. `git log`).
-   Заканчивать строкой:
+1. Каждая фича = один коммит + СРАЗУ `git push origin feature/finance-tracker`.
+2. Коммитить только файлы кода фичи (docs можно отдельным коммитом — они версионируются).
+   Сообщения — на русском, стиль репо (`git log`), заканчивать:
    `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
-3. Любое изменённое поле модели → `updatedAt = .now`, иначе синк не подхватит.
-4. Не коммитить `GoogleService-Info.plist` (в .gitignore, содержит ключи Firebase).
-5. Собрать проект перед коммитом (см. BUILD.md), убедиться `BUILD SUCCEEDED`.
+3. Любое изменённое поле модели → `updatedAt = .now`.
+4. Не коммитить `GoogleService-Info.plist` (в .gitignore).
+5. Перед коммитом собрать (`BUILD SUCCEEDED`) и запустить на симуляторе (без краша миграции).
+6. Тесты пока отложены — см. `08-test-suite.md` (блокер двух ModelContainer'ов).
