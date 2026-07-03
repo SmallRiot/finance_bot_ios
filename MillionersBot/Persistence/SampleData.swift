@@ -61,6 +61,13 @@ enum SampleData {
         let goal3 = savingRepo.add(title: "Новый ноутбук", targetAmount: nil, currencyCode: CurrencyCode.default.rawValue, colorHex: "#AF52DE")
         savingRepo.addContribution(goal3, amount: 35_000)
 
+        // Демо-список покупок
+        let shoppingRepo = ShoppingItemRepository(context: context)
+        shoppingRepo.add(title: "Молоко")
+        shoppingRepo.add(title: "Хлеб")
+        let bought = shoppingRepo.add(title: "Кофе")
+        bought.isPurchased = true
+
         try? context.save()
     }
 }

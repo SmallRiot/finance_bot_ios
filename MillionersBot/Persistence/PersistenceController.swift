@@ -19,6 +19,7 @@ enum PersistenceController {
         Saving.self,
         SavingTransaction.self,
         RecurringExpense.self,
+        ShoppingItem.self,
     ])
 
     /// Основной контейнер. `inMemory` используется для превью и тестов.

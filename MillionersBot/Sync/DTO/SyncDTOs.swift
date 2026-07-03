@@ -118,6 +118,28 @@ struct RecurringExpenseDTO: Codable {
     }
 }
 
+struct ShoppingItemDTO: Codable {
+    var id: String
+    var title: String
+    var note: String?
+    var isPurchased: Bool
+    var authorID: String?
+    var sortOrder: Int
+    var isDeleted: Bool
+    var updatedAt: Date
+
+    init(_ m: ShoppingItem) {
+        id = m.id
+        title = m.title
+        note = m.note
+        isPurchased = m.isPurchased
+        authorID = m.authorID
+        sortOrder = m.sortOrder
+        isDeleted = m.isDeleted
+        updatedAt = m.updatedAt
+    }
+}
+
 struct SavingDTO: Codable {
     var id: String
     var title: String

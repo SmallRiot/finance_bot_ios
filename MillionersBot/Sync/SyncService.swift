@@ -99,6 +99,10 @@ final class SyncService {
             let dtos = snapshot?.documents.compactMap { try? $0.data(as: RecurringExpenseDTO.self) } ?? []
             Task { @MainActor in self.applyRecurring(dtos) }
         })
+        listeners.append(collection(hid, "shoppingItems").addSnapshotListener { snapshot, _ in
+            let dtos = snapshot?.documents.compactMap { try? $0.data(as: ShoppingItemDTO.self) } ?? []
+            Task { @MainActor in self.applyShoppingItems(dtos) }
+        })
     }
 
     private func applyMembers(_ dtos: [MemberDTO]) {
@@ -264,6 +268,33 @@ final class SyncService {
         }
     }
 
+    private func applyShoppingItems(_ dtos: [ShoppingItemDTO]) {
+        guard let hid = householdID else { return }
+        withRemoteApply {
+            for dto in dtos {
+                let existing = fetchShoppingItem(dto.id)
+                if let existing {
+                    guard dto.updatedAt > existing.updatedAt else { continue }
+                    existing.title = dto.title
+                    existing.note = dto.note
+                    existing.isPurchased = dto.isPurchased
+                    existing.authorID = dto.authorID
+                    existing.sortOrder = dto.sortOrder
+                    existing.isDeleted = dto.isDeleted
+                    existing.householdID = hid
+                    existing.updatedAt = dto.updatedAt
+                } else {
+                    let item = ShoppingItem(id: dto.id, title: dto.title, note: dto.note,
+                                            isPurchased: dto.isPurchased, authorID: dto.authorID,
+                                            householdID: hid, sortOrder: dto.sortOrder,
+                                            isDeleted: dto.isDeleted, updatedAt: dto.updatedAt)
+                    context.insert(item)
+                }
+                watermark = max(watermark, dto.updatedAt)
+            }
+        }
+    }
+
     // MARK: - Push (SwiftData → Firestore)
 
     private func observeLocalSaves() {
@@ -302,6 +333,10 @@ final class SyncService {
             try? collection(hid, "recurring").document(r.id).setData(from: RecurringExpenseDTO(r))
             newWatermark = max(newWatermark, r.updatedAt)
         }
+        for i in (fetchAll(ShoppingItem.self)) where i.householdID == hid && i.updatedAt > watermark {
+            try? collection(hid, "shoppingItems").document(i.id).setData(from: ShoppingItemDTO(i))
+            newWatermark = max(newWatermark, i.updatedAt)
+        }
         watermark = newWatermark
         persistWatermark()
     }
@@ -328,6 +363,9 @@ final class SyncService {
         }
         for r in fetchAll(RecurringExpense.self) where r.householdID == nil {
             r.householdID = hid; r.updatedAt = now
+        }
+        for i in fetchAll(ShoppingItem.self) where i.householdID == nil {
+            i.householdID = hid; i.updatedAt = now
         }
         try? context.save()
     }
@@ -370,6 +408,10 @@ final class SyncService {
 
     private func fetchRecurring(_ id: String) -> RecurringExpense? {
         try? context.fetch(FetchDescriptor<RecurringExpense>(predicate: #Predicate { $0.id == id })).first
+    }
+
+    private func fetchShoppingItem(_ id: String) -> ShoppingItem? {
+        try? context.fetch(FetchDescriptor<ShoppingItem>(predicate: #Predicate { $0.id == id })).first
     }
 
     private func fetchProfile(_ id: String) -> UserProfile? {

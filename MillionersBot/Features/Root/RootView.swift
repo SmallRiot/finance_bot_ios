@@ -12,7 +12,7 @@ import FirebaseFirestore
 #endif
 
 enum AppTab: Hashable {
-    case expenses, stats, savings, family, settings
+    case expenses, shopping, stats, savings, family, settings
 }
 
 struct RootView: View {
@@ -28,6 +28,9 @@ struct RootView: View {
         TabView(selection: $selection) {
             Tab("Траты", systemImage: "list.bullet.rectangle", value: AppTab.expenses) {
                 ExpensesView()
+            }
+            Tab("Покупки", systemImage: "cart", value: AppTab.shopping) {
+                ShoppingListView()
             }
             Tab("Статистика", systemImage: "chart.pie", value: AppTab.stats) {
                 StatsView()
@@ -120,6 +123,7 @@ struct RootView: View {
         if let index = CommandLine.arguments.firstIndex(of: "-tab"),
            index + 1 < CommandLine.arguments.count {
             switch CommandLine.arguments[index + 1] {
+            case "shopping": return .shopping
             case "stats": return .stats
             case "savings": return .savings
             case "family": return .family
