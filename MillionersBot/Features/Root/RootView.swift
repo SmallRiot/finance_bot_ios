@@ -2,7 +2,7 @@
 //  RootView.swift
 //  MillionersBot
 //
-//  Корневой экран: TabView с пятью вкладками.
+//  Корневой экран: TabView с шестью вкладками.
 //
 
 import SwiftUI

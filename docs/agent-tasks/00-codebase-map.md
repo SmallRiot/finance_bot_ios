@@ -1,7 +1,7 @@
 # MillionersBot — карта кода для агентов
 
 Общий контекст для фич. Читать вместе с конкретным спеком (`01-*.md` … `08-*.md`).
-Актуально на коммит с фиксом сидинга категорий (`f6f7fb9`+).
+Актуально на коммит с экраном «Покупки» (`92cb4a8`+).
 
 ## Стек
 - SwiftUI + SwiftData (локально), Firebase Firestore (синк семьи).
@@ -51,6 +51,14 @@
     var lastPostedPeriod: String    // "yyyy-MM" последнего созданного месяца
     var isActive, isDeleted: Bool; var updatedAt: Date
 }
+@Model final class ShoppingItem {     // совместный список покупок (экран «Покупки»)
+    @Attribute(.unique) var id: String
+    var title: String; var note: String?
+    var isPurchased: Bool           // отмечено купленным
+    var authorID, householdID: String?
+    var sortOrder: Int              // новые сверху (минимальный sortOrder − 1)
+    var isDeleted: Bool; var updatedAt: Date
+}
 // плюс UserProfile, Household, CurrencyCode (enum).
 ```
 
@@ -69,6 +77,9 @@
 - `SavingRepository`: `addContribution(_:amount:note:authorID:householdID:)` пишет и
   `SavingTransaction`; `softDeleteTransaction` корректирует `currentAmount`;
   `ensureOpeningBalance` для легаси-сбережений без истории.
+- `ShoppingItemRepository`: `active(in:)` (некупленные над купленными),
+  `add` (новые сверху), `togglePurchased`, `rename`, `softDelete`,
+  `clearPurchased(in:)` (soft delete всего купленного в области).
 
 ## Постинг регулярных трат
 `MillionersBot/App/RecurringService.swift` — `postDue(context:)`: по активным правилам
@@ -81,7 +92,8 @@
 по `updatedAt`, деньги через `Money.parse`, двигает watermark) + цикл в `pushDirty`
 (`fetchAll(...) where householdID == hid && updatedAt > watermark` → `setData(from: DTO)`) +
 привязка в `adoptLocalData` + `fetch<Entity>` helper.
-- Коллекции: `categories`, `expenses`, `savings`, `savingTransactions`, `recurring`, `members`.
+- Коллекции: `categories`, `expenses`, `savings`, `savingTransactions`, `recurring`,
+  `shoppingItems`, `members`.
 - **Watermark** отсекает эхо и persist'ится в UserDefaults по семье (`syncWatermark.<hid>`,
   фича 7). Любое изменённое поле модели ОБЯЗАНО ставить `updatedAt = .now`.
 - Добавляя новую синкаемую сущность: модель → DTO → listener+apply → push-цикл →
@@ -89,13 +101,14 @@
   `match /{collection}/{docId}` уже покрывает любую вложенную коллекцию семьи).
 
 `MillionersBot/Sync/DTO/SyncDTOs.swift` — Codable-зеркала: Member/Category/Expense/Saving/
-SavingTransaction/RecurringExpense DTO. Деньги — строкой (`"\(m.amount)"`) для точности Decimal.
+SavingTransaction/RecurringExpense/ShoppingItem DTO. Деньги — строкой (`"\(m.amount)"`) для точности Decimal.
 
 ## Firestore
 ```
 households/{hid}
   ├─ categories/{id}   ├─ expenses/{id}         ├─ savings/{id}
-  ├─ savingTransactions/{id}   ├─ recurring/{id}   └─ members/{uid}
+  ├─ savingTransactions/{id}   ├─ recurring/{id}   ├─ shoppingItems/{id}
+  └─ members/{uid}
   (memberIDs: [uid] в самом документе household)
 ```
 
